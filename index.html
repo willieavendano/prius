@@ -852,7 +852,10 @@
                     <td>${fillUp.totalCost.toFixed(2)}</td>
                     <td>${fillUp.octaneRating}</td>
                     <td>${fillUp.predictedRange || '--'}</td>
-                    <td>${fillUp.costPerMile !== null ? '
+                    <td>${fillUp.costPerMile !== null ? fillUp.costPerMile.toFixed(3) : '--'}</td>
+                    <td title="${fillUp.stationAddress || ''}">${fillUp.gasStation || fillUp.location || '--'}</td>
+                    <td><button class="delete-btn" onclick="deleteFillUp(${fillUp.id})">Delete</button></td>
+                `;
             });
         }
         
@@ -967,7 +970,7 @@
             
             const link = document.createElement('a');
             link.href = URL.createObjectURL(dataBlob);
-            link.download = `prius-fuel-data-${new Date().toISOString().split('T')[0]}.json`;
+            link.download = 'prius-fuel-data-' + new Date().toISOString().split('T')[0] + '.json';
             link.click();
             
             showAlert('Data exported successfully!', 'success');
@@ -1032,209 +1035,7 @@
             existingAlerts.forEach(alert => alert.remove());
             
             const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
-            
-            const content = document.querySelector('.content');
-            content.insertBefore(alert, content.firstChild);
-            
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                if (alert.parentNode) {
-                    alert.remove();
-                }
-            }, 5000);
-        }
-        
-        // Auto-save every 30 seconds as backup
-        setInterval(() => {
-            if (fillUpData.length > 0) {
-                saveData();
-            }
-        }, 30000);
-    </script>
-</body>
-</html> + fillUp.costPerMile.toFixed(3) : '--'}</td>
-                    <td title="${fillUp.stationAddress || ''}">${fillUp.gasStation || fillUp.location || '--'}</td>
-                    <td><button class="delete-btn" onclick="deleteFillUp(${fillUp.id})">Delete</button></td>
-                `;
-            });
-        }
-        
-        function updateDashboard() {
-            if (fillUpData.length === 0) {
-                document.getElementById('avgMPG').textContent = '--';
-                document.getElementById('totalMiles').textContent = '--';
-                document.getElementById('totalSpent').textContent = '$--';
-                document.getElementById('avgCostPerMile').textContent = '$--';
-                document.getElementById('totalFillUps').textContent = '0';
-                document.getElementById('avgRange').textContent = '--';
-                return;
-            }
-            
-            // Calculate metrics
-            const validMPG = fillUpData.filter(f => f.mpg !== null && f.mpg > 0).map(f => f.mpg);
-            const avgMPG = validMPG.length > 0 ? validMPG.reduce((a, b) => a + b, 0) / validMPG.length : 0;
-            
-            const sortedByOdometer = [...fillUpData].sort((a, b) => a.odometer - b.odometer);
-            const totalMiles = sortedByOdometer.length > 1 ? 
-                sortedByOdometer[sortedByOdometer.length - 1].odometer - sortedByOdometer[0].odometer : 0;
-            
-            const totalSpent = fillUpData.reduce((sum, f) => sum + f.totalCost, 0);
-            
-            const validCostPerMile = fillUpData.filter(f => f.costPerMile !== null && f.costPerMile > 0).map(f => f.costPerMile);
-            const avgCostPerMile = validCostPerMile.length > 0 ? 
-                validCostPerMile.reduce((a, b) => a + b, 0) / validCostPerMile.length : 0;
-            
-            const validRange = fillUpData.filter(f => f.predictedRange && f.predictedRange > 0).map(f => f.predictedRange);
-            const avgRange = validRange.length > 0 ? 
-                validRange.reduce((a, b) => a + b, 0) / validRange.length : 0;
-            
-            // Update dashboard
-            document.getElementById('avgMPG').textContent = avgMPG > 0 ? avgMPG.toFixed(1) : '--';
-            document.getElementById('totalMiles').textContent = totalMiles > 0 ? totalMiles.toLocaleString() : '--';
-            document.getElementById('totalSpent').textContent = '$' + totalSpent.toFixed(2);
-            document.getElementById('avgCostPerMile').textContent = avgCostPerMile > 0 ? '$' + avgCostPerMile.toFixed(3) : '--';
-            document.getElementById('totalFillUps').textContent = fillUpData.length;
-            document.getElementById('avgRange').textContent = avgRange > 0 ? Math.round(avgRange) : '--';
-        }
-        
-        function updateStatistics() {
-            if (fillUpData.length === 0) {
-                document.getElementById('bestMPG').textContent = '--';
-                document.getElementById('bestCostPerMile').textContent = '--';
-                document.getElementById('bestRange').textContent = '--';
-                document.getElementById('totalGallons').textContent = '--';
-                document.getElementById('avgPricePerGallon').textContent = '--';
-                document.getElementById('mostUsedOctane').textContent = '--';
-                return;
-            }
-            
-            // Best performance
-            const validMPG = fillUpData.filter(f => f.mpg !== null && f.mpg > 0);
-            const bestMPG = validMPG.length > 0 ? Math.max(...validMPG.map(f => f.mpg)) : 0;
-            
-            const validCostPerMile = fillUpData.filter(f => f.costPerMile !== null && f.costPerMile > 0);
-            const bestCostPerMile = validCostPerMile.length > 0 ? Math.min(...validCostPerMile.map(f => f.costPerMile)) : 0;
-            
-            const validRange = fillUpData.filter(f => f.predictedRange && f.predictedRange > 0);
-            const bestRange = validRange.length > 0 ? Math.max(...validRange.map(f => f.predictedRange)) : 0;
-            
-            // Fuel details
-            const totalGallons = fillUpData.reduce((sum, f) => sum + f.gallons, 0);
-            const avgPricePerGallon = fillUpData.reduce((sum, f) => sum + f.pricePerGallon, 0) / fillUpData.length;
-            
-            // Most used octane
-            const octaneCounts = {};
-            fillUpData.forEach(f => {
-                octaneCounts[f.octaneRating] = (octaneCounts[f.octaneRating] || 0) + 1;
-            });
-            const mostUsedOctane = Object.keys(octaneCounts).reduce((a, b) => 
-                octaneCounts[a] > octaneCounts[b] ? a : b, '');
-            
-            // Update statistics
-            document.getElementById('bestMPG').textContent = bestMPG > 0 ? bestMPG.toFixed(1) : '--';
-            document.getElementById('bestCostPerMile').textContent = bestCostPerMile > 0 ? '$' + bestCostPerMile.toFixed(3) : '--';
-            document.getElementById('bestRange').textContent = bestRange > 0 ? bestRange + ' mi' : '--';
-            document.getElementById('totalGallons').textContent = totalGallons.toFixed(1);
-            document.getElementById('avgPricePerGallon').textContent = '$' + avgPricePerGallon.toFixed(3);
-            document.getElementById('mostUsedOctane').textContent = mostUsedOctane ? mostUsedOctane + ' octane' : '--';
-        }
-        
-        function clearForm() {
-            document.getElementById('fillupDate').valueAsDate = new Date();
-            document.getElementById('odometer').value = '';
-            document.getElementById('gallons').value = '';
-            document.getElementById('totalCost').value = '';
-            document.getElementById('octaneRating').value = '';
-            document.getElementById('predictedRange').value = '';
-            document.getElementById('location').value = '';
-            document.getElementById('notes').value = '';
-        }
-        
-        function exportData() {
-            if (fillUpData.length === 0) {
-                alert('No data to export!');
-                return;
-            }
-            
-            const exportData = {
-                fillUpData: fillUpData,
-                exportDate: new Date().toISOString(),
-                version: '1.0'
-            };
-            
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(dataBlob);
-            link.download = `prius-fuel-data-${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
-            
-            showAlert('Data exported successfully!', 'success');
-        }
-        
-        function importData() {
-            document.getElementById('fileInput').click();
-        }
-        
-        function handleFileImport(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    if (importedData.fillUpData && Array.isArray(importedData.fillUpData)) {
-                        if (fillUpData.length > 0) {
-                            if (!confirm('This will replace all existing data. Are you sure?')) {
-                                return;
-                            }
-                        }
-                        
-                        fillUpData = importedData.fillUpData;
-                        saveData();
-                        updateDisplay();
-                        showAlert(`Successfully imported ${fillUpData.length} records!`, 'success');
-                    } else {
-                        throw new Error('Invalid file format');
-                    }
-                } catch (error) {
-                    alert('Error importing file. Please make sure it\'s a valid Prius Fuel Tracker export file.');
-                }
-            };
-            reader.readAsText(file);
-            
-            // Reset the file input
-            event.target.value = '';
-        }
-        
-        function clearAllData() {
-            if (fillUpData.length === 0) {
-                alert('No data to clear!');
-                return;
-            }
-            
-            if (confirm('Are you sure you want to delete ALL fill-up records? This cannot be undone!')) {
-                if (confirm('Really sure? This will permanently delete all your fuel tracking data!')) {
-                    fillUpData = [];
-                    saveData();
-                    updateDisplay();
-                    showAlert('All data cleared.', 'info');
-                }
-            }
-        }
-        
-        function showAlert(message, type) {
-            // Remove existing alerts
-            const existingAlerts = document.querySelectorAll('.alert');
-            existingAlerts.forEach(alert => alert.remove());
-            
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
+            alert.className = 'alert alert-' + type;
             alert.textContent = message;
             
             const content = document.querySelector('.content');
